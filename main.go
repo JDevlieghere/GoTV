@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -44,6 +43,10 @@ type Episode struct {
 	Season  int
 	Episode int
 	Title   string
+}
+
+func (e Episode) String() string {
+	return fmt.Sprintf("%s S%02dE%02d %s", e.Show, e.Season, e.Episode, e.Title)
 }
 
 func getXml(url string) ([]byte, error) {
@@ -110,23 +113,34 @@ func lastEpisode(name string) (Episode, error) {
 	if err != nil {
 		return Episode{}, err
 	}
-	date := time.Now().Format("2006-01-02")
+	today := time.Now()
+	yesterday := today.AddDate(0, 0, -1)
+	date := yesterday.Format("2006-01-02")
 	return getEpisode(series, date)
 }
 
-func fetchLastEpisode(name string, ch chan<- string) {
+func fetchLastEpisode(name string, ch chan<- *Episode) {
 	episode, err := lastEpisode(name)
 	if err != nil {
-		ch <- fmt.Sprintf("%s", err)
+		ch <- nil
 		return
 	}
-	ch <- fmt.Sprintf("%s", episode)
+	ch <- &episode
 }
 
-func (e Episode) String() string {
-	show := strings.Replace(e.Show, " ", ".", -1)
-	title := strings.Replace(e.Title, " ", ".", -1)
-	return fmt.Sprintf("%s.S%02dE%02d.%s", show, e.Season, e.Episode, title)
+func readSeries(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	return lines, nil
 }
 
 func main() {
@@ -136,23 +150,21 @@ func main() {
 		return
 	}
 
-	ch := make(chan string)
+	ch := make(chan *Episode)
 
-	file, err := os.Open(os.Args[1])
+	series, err := readSeries(os.Args[1])
 	if err != nil {
 		fmt.Println(err)
-		return
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	entries := 0
-	for scanner.Scan() {
-		go fetchLastEpisode(scanner.Text(), ch)
-		entries++
 	}
 
-	for i := 0; i < entries; i++ {
-		fmt.Println(<-ch)
+	for _, title := range series {
+		go fetchLastEpisode(title, ch)
+	}
+
+	for i := 0; i < len(series); i++ {
+		episode := <-ch
+		if episode != nil {
+			fmt.Println(episode)
+		}
 	}
 }
