@@ -6,11 +6,14 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/JDevlieghere/GoTV/sources/kat"
 )
 
 const (
@@ -18,6 +21,8 @@ const (
 	SERIES_URL  string = "http://thetvdb.com/api/GetSeries.php?seriesname=%v"
 	EPISODE_URL string = "http://thetvdb.com/api/GetEpisodeByAirDate.php?apikey=%s&seriesid=%d&airdate=%v"
 )
+
+type GetUrl func(query string) (string, error)
 
 type TvDBEpisodeQuery struct {
 	Episode TvDBEpisode
@@ -49,23 +54,23 @@ func (e Episode) String() string {
 	return fmt.Sprintf("%s S%02dE%02d %s", e.Show, e.Season, e.Episode, e.Title)
 }
 
-func getXml(url string) ([]byte, error) {
+func getData(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
-	} else {
-		defer resp.Body.Close()
-		contents, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		return contents, nil
 	}
+
+	defer resp.Body.Close()
+	contents, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return contents, nil
 }
 
 func getSeries(name string) (TvDBSeries, error) {
 	seriesUrl := fmt.Sprintf(SERIES_URL, url.QueryEscape(name))
-	xmlData, err := getXml(seriesUrl)
+	xmlData, err := getData(seriesUrl)
 	if err != nil {
 		return TvDBSeries{}, err
 	}
@@ -78,14 +83,14 @@ func getSeries(name string) (TvDBSeries, error) {
 
 	if len(q.Series) <= 0 {
 		return TvDBSeries{}, errors.New("Could not find series with name " + name)
-	} else {
-		return q.Series[0], nil
 	}
+
+	return q.Series[0], nil
 }
 
 func getEpisode(series TvDBSeries, date string) (Episode, error) {
 	episodeUrl := fmt.Sprintf(EPISODE_URL, url.QueryEscape(API_KEY), series.SeriesId, url.QueryEscape(date))
-	xmlData, err := getXml(episodeUrl)
+	xmlData, err := getData(episodeUrl)
 	if err != nil {
 		return Episode{}, err
 	}
@@ -143,6 +148,37 @@ func readSeries(path string) ([]string, error) {
 	return lines, nil
 }
 
+func download(episode *Episode, getUrl GetUrl) error {
+	query := fmt.Sprintf("%s 720p", episode)
+	url, err := getUrl(query)
+	if err != nil {
+		return err
+	}
+
+	out, err := os.Create(query)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func downloadKat(episode *Episode, ch chan<- error) {
+	ch <- download(episode, kat.GetUrl)
+}
+
 func main() {
 
 	if len(os.Args) <= 1 {
@@ -150,7 +186,8 @@ func main() {
 		return
 	}
 
-	ch := make(chan *Episode)
+	episodeCh := make(chan *Episode)
+	errorCh := make(chan error)
 
 	series, err := readSeries(os.Args[1])
 	if err != nil {
@@ -158,13 +195,23 @@ func main() {
 	}
 
 	for _, title := range series {
-		go fetchLastEpisode(title, ch)
+		go fetchLastEpisode(title, episodeCh)
 	}
 
+	downloads := 0
 	for i := 0; i < len(series); i++ {
-		episode := <-ch
+		episode := <-episodeCh
 		if episode != nil {
-			fmt.Println(episode)
+			go downloadKat(episode, errorCh)
+			downloads++
 		}
+	}
+
+	for i := 0; i < downloads; i++ {
+		err = <-errorCh
+		if err != nil {
+			fmt.Println(err)
+		}
+
 	}
 }
