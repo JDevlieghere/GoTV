@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 const (
@@ -28,14 +29,14 @@ func getData(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
-	} else {
-		defer resp.Body.Close()
-		contents, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		return contents, nil
 	}
+
+	defer resp.Body.Close()
+	contents, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return contents, nil
 }
 
 func getTorrents(query string) (KatQuery, error) {
@@ -63,5 +64,8 @@ func GetUrl(query string) (string, error) {
 		return "", errors.New("No torrent found for " + query)
 	}
 
-	return q.Torrents[0].TorrentLink, nil
+	urlParts := strings.Split(q.Torrents[0].TorrentLink, "?")
+	url := strings.Replace(urlParts[0], "https", "http", 1)
+
+	return url, nil
 }
