@@ -21,17 +21,12 @@ func run(config config.Configuration) {
 	episodeCh := make(chan *core.Episode)
 	errorCh := make(chan error)
 
-	series, err := core.ReadSeries(config.File)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, title := range series {
+	for _, title := range config.Series {
 		go core.FetchLastEpisode(title, episodeCh)
 	}
 
 	downloads := 0
-	for i := 0; i < len(series); i++ {
+	for i := 0; i < len(config.Series); i++ {
 		episode := <-episodeCh
 		if episode != nil {
 			go downloadKat(episode, config.Directory, errorCh)
@@ -40,7 +35,7 @@ func run(config config.Configuration) {
 	}
 
 	for i := 0; i < downloads; i++ {
-		err = <-errorCh
+		err := <-errorCh
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -49,13 +44,14 @@ func run(config config.Configuration) {
 
 func main() {
 
+	cfg := config.Get()
 	app := cli.NewApp()
 
 	app.Name = "GoTV"
 	app.Usage = "Automatically download TV shows"
 	app.Author = "Jonas Devlieghere"
+	app.Email = "info@jonasdevlieghere.com"
 	app.Version = "1.0.0"
-
 	app.EnableBashCompletion = true
 
 	app.Commands = []cli.Command{
@@ -64,32 +60,15 @@ func main() {
 			Flags: []cli.Flag{},
 			Usage: "run GoTV",
 			Action: func(c *cli.Context) {
-				run(config.GetConfig())
+				run(cfg)
 			},
 		},
 		{
-			Name: "config",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "file, f",
-					Usage: "File containing one tv show per line",
-				},
-				cli.StringFlag{
-					Name:  "dir, d",
-					Usage: "Path to download directory",
-				},
-			},
-			Usage: "Change configuration",
+			Name:  "info",
+			Flags: []cli.Flag{},
+			Usage: "Show configuration info",
 			Action: func(c *cli.Context) {
-				if c.IsSet("file") {
-					file := c.String("file")
-					config.SetFile(file)
-				}
-				if c.IsSet("dir") {
-					dir := c.String("dir")
-					config.SetDirectory(dir)
-				}
-				fmt.Printf("%s", config.GetConfig())
+				fmt.Println(cfg)
 			},
 		},
 	}

@@ -1,1 +1,14 @@
-{"File":"shows.txt","Directory":"downloads"}
+{
+   "Directory":"downloads",
+   "Series":[
+      "Angie Tribeca",
+      "Mercy Street",
+      "Billions",
+      "Brooklyn 99",
+      "The Walking Dead",
+      "Shameless US",
+      "American Dad!",
+      "Family Guy",
+      "Castle"
+   ]
+}
