@@ -21,7 +21,6 @@ const (
 	API_KEY     string = ""
 	SERIES_URL  string = "http://thetvdb.com/api/GetSeries.php?seriesname=%v"
 	EPISODE_URL string = "http://thetvdb.com/api/GetEpisodeByAirDate.php?apikey=%s&seriesid=%d&airdate=%v"
-	QUALITY     string = "720p"
 )
 
 type GetUrl func(query string) (string, error)
@@ -178,9 +177,9 @@ func getFile(url string, fileName string) error {
 	return nil
 }
 
-func Download(episode *Episode, dir string, getUrl GetUrl) error {
+func Download(episode *Episode, quality string, dir string, getUrl GetUrl) error {
 	query := fmt.Sprintf("%s", episode)
-	url, err := getUrl(query + " " + QUALITY)
+	url, err := getUrl(query + " " + quality)
 	if err != nil {
 		return err
 	}

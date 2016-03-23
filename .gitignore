@@ -26,4 +26,5 @@ _testmain.go
 # Project files
 GoTV
 *.zip
+*.torrent
 downloads

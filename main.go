@@ -12,8 +12,8 @@ import (
 	"github.com/codegangsta/cli"
 )
 
-func downloadKat(episode *core.Episode, dir string, ch chan<- error) {
-	ch <- core.Download(episode, dir, kat.GetUrl)
+func downloadKat(episode *core.Episode, config config.Configuration, ch chan<- error) {
+	ch <- core.Download(episode, config.Quality, config.Directory, kat.GetUrl)
 }
 
 func run(config config.Configuration, verbose bool) {
@@ -29,7 +29,7 @@ func run(config config.Configuration, verbose bool) {
 	for _, title := range config.Series {
 		episode := <-episodeCh
 		if episode != nil {
-			go downloadKat(episode, config.Directory, errorCh)
+			go downloadKat(episode, config, errorCh)
 			downloads++
 			if verbose {
 				log.Printf("Downloading %s", episode)
