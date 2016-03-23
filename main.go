@@ -16,7 +16,7 @@ func downloadKat(episode *core.Episode, dir string, ch chan<- error) {
 	ch <- core.Download(episode, dir, kat.GetUrl)
 }
 
-func run(config config.Configuration) {
+func run(config config.Configuration, verbose bool) {
 
 	episodeCh := make(chan *core.Episode)
 	errorCh := make(chan error)
@@ -26,11 +26,16 @@ func run(config config.Configuration) {
 	}
 
 	downloads := 0
-	for i := 0; i < len(config.Series); i++ {
+	for _, title := range config.Series {
 		episode := <-episodeCh
 		if episode != nil {
 			go downloadKat(episode, config.Directory, errorCh)
 			downloads++
+			if verbose {
+				log.Printf("Downloading %s", episode)
+			}
+		} else if verbose {
+			log.Printf("No new episode found for %s", title)
 		}
 	}
 
@@ -52,15 +57,19 @@ func main() {
 	app.Author = "Jonas Devlieghere"
 	app.Email = "info@jonasdevlieghere.com"
 	app.Version = "1.0.0"
-	app.EnableBashCompletion = true
 
 	app.Commands = []cli.Command{
 		{
-			Name:  "run",
-			Flags: []cli.Flag{},
+			Name: "run",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "verbose, v",
+					Usage: "show detailled output",
+				},
+			},
 			Usage: "run GoTV",
 			Action: func(c *cli.Context) {
-				run(cfg)
+				run(cfg, c.Bool("verbose"))
 			},
 		},
 		{

@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 )
@@ -13,6 +15,17 @@ const (
 type Configuration struct {
 	Directory string
 	Series    []string
+}
+
+func (config Configuration) String() string {
+	var buffer bytes.Buffer
+	buffer.WriteString(fmt.Sprintf("DOWNLOAD DIR:"))
+	buffer.WriteString(fmt.Sprintf("\n\t%s\n", config.Directory))
+	buffer.WriteString(fmt.Sprintf("SERIES:"))
+	for _, s := range config.Series {
+		buffer.WriteString(fmt.Sprintf("\n\t%s", s))
+	}
+	return buffer.String()
 }
 
 func readConfig() (Configuration, error) {
