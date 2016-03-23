@@ -17,3 +17,39 @@ The configuration is stored in the `config.json` file. This file contains the pa
 ```
 $ ./GoTV info
 ```
+
+### Directory
+
+The directory is the path where torrent files should be stored. Many torrent clients have a feature to automatically start downloading torrents that appear in a certain folder. Use this to automate your workflow. The example config uses the current directory as the destination folder.
+
+```json
+"Directory":"./",
+```
+
+### Quality
+
+Use the quality parameter to refine the search for torrent. If there is no version matching the given quality, no torrent will be downloaded.
+
+```json
+"Quality": "720p WEB",
+ ```
+ 
+### Series
+
+This is where you specify the TV shows you follow. Add or remove entries as you desire.
+
+```json
+"Series":[
+  "Angie Tribeca",
+  "Mercy Street",
+  "Billions",
+  "Better Call Saul",
+  "Brooklyn 99",
+  "The Walking Dead",
+  "Shameless US",
+  "American Dad!",
+  "New Girl",
+  "Family Guy",
+  "Castle"
+]
+```
