@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -57,6 +58,21 @@ func run(config Configuration, verbose bool) {
 	config.save()
 }
 
+func emptyQueue(config Configuration) error {
+	var empty []Episode
+	config.Queue = empty
+	return config.save()
+}
+
+func removeFromQueue(config Configuration, i int) error {
+	if len(config.Queue) < i {
+		err := fmt.Sprintf("No item with index %d", i)
+		return errors.New(err)
+	}
+	config.Queue = append(config.Queue[:i], config.Queue[i+1:]...)
+	return config.save()
+}
+
 func main() {
 
 	cfg := getConfig()
@@ -91,13 +107,31 @@ func main() {
 			},
 		},
 		{
-			Name:  "clean",
-			Flags: []cli.Flag{},
+			Name: "clear",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "index, i",
+					Usage: "Item from queue to remove",
+				},
+			},
 			Usage: "Empty download queue",
 			Action: func(c *cli.Context) {
-				var empty []Episode
-				cfg.Queue = empty
-				cfg.save()
+				if c.IsSet("index") {
+					i := c.Int("index")
+					err := removeFromQueue(cfg, i)
+					if err != nil {
+						log.Fatal(err)
+					} else {
+						log.Printf("Removed item %d from queue", i)
+					}
+				} else {
+					err := emptyQueue(cfg)
+					if err != nil {
+						log.Fatal(err)
+					} else {
+						log.Print("Queue emptied")
+					}
+				}
 			},
 		},
 	}

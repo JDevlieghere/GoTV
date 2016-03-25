@@ -30,8 +30,8 @@ func (config Configuration) String() string {
 		buffer.WriteString(fmt.Sprintf("\n\t%s", s))
 	}
 	buffer.WriteString(fmt.Sprintf("\nQUEUE:"))
-	for _, e := range config.Queue {
-		buffer.WriteString(fmt.Sprintf("\n\t%s", e))
+	for i, e := range config.Queue {
+		buffer.WriteString(fmt.Sprintf("\n\t%d - %s", i, e))
 	}
 	return buffer.String()
 }
