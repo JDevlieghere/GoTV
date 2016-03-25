@@ -5,31 +5,36 @@ import (
 	"log"
 	"os"
 
-	"github.com/JDevlieghere/GoTV/config"
-	"github.com/JDevlieghere/GoTV/core"
 	"github.com/JDevlieghere/GoTV/kat"
-
 	"github.com/codegangsta/cli"
 )
 
-func downloadKat(episode *core.Episode, config config.Configuration, ch chan<- error) {
-	ch <- core.Download(episode, config.Quality, config.Directory, kat.GetUrl)
+func downloadKat(episode *Episode, config Configuration, ch chan<- *Result) {
+	ch <- download(episode, config.Quality, config.Directory, kat.GetUrl)
 }
 
-func run(config config.Configuration, verbose bool) {
+func run(config Configuration, verbose bool) {
 
-	episodeCh := make(chan *core.Episode)
-	errorCh := make(chan error)
+	episodeCh := make(chan *Episode)
+	resultCh := make(chan *Result)
+	downloads := 0
 
 	for _, title := range config.Series {
-		go core.FetchLastEpisode(title, episodeCh)
+		go fetchLastEpisode(title, episodeCh)
 	}
 
-	downloads := 0
+	queuedEpisode := config.dequeue()
+	for queuedEpisode != nil {
+		go downloadKat(queuedEpisode, config, resultCh)
+		downloads++
+		queuedEpisode = config.dequeue()
+	}
+
+	// Download new episodes
 	for _, title := range config.Series {
 		episode := <-episodeCh
 		if episode != nil {
-			go downloadKat(episode, config, errorCh)
+			go downloadKat(episode, config, resultCh)
 			downloads++
 			if verbose {
 				log.Printf("Downloading %s", episode)
@@ -40,23 +45,28 @@ func run(config config.Configuration, verbose bool) {
 	}
 
 	for i := 0; i < downloads; i++ {
-		err := <-errorCh
-		if err != nil {
-			log.Fatal(err)
+		result := <-resultCh
+		if result.Err != nil {
+			config.enqueue(&result.Episode)
+			if verbose {
+				log.Print(result.Err)
+			}
 		}
 	}
+
+	config.save()
 }
 
 func main() {
 
-	cfg := config.Get()
+	cfg := getConfig()
 	app := cli.NewApp()
 
 	app.Name = "GoTV"
 	app.Usage = "Automatically download TV shows"
 	app.Author = "Jonas Devlieghere"
 	app.Email = "info@jonasdevlieghere.com"
-	app.Version = "1.0.0"
+	app.Version = "1.1.0"
 
 	app.Commands = []cli.Command{
 		{
@@ -64,7 +74,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "verbose, v",
-					Usage: "show detailled output",
+					Usage: "show detailed output",
 				},
 			},
 			Usage: "run GoTV",
@@ -78,6 +88,16 @@ func main() {
 			Usage: "Show configuration info",
 			Action: func(c *cli.Context) {
 				fmt.Println(cfg)
+			},
+		},
+		{
+			Name:  "clean",
+			Flags: []cli.Flag{},
+			Usage: "Empty download queue",
+			Action: func(c *cli.Context) {
+				var empty []Episode
+				cfg.Queue = empty
+				cfg.save()
 			},
 		},
 	}
